@@ -26,4 +26,4 @@ app.use('/audio', audio);
 app.use('/picture', picture);
 app.use('/user', user);
 
-app.listen(port, () => console.log(`Starting API at http://localhost:${port}`));
+app.listen(port, () => console.log(`Starting API at ${port}`));
