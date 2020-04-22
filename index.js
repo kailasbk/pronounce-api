@@ -15,6 +15,7 @@ const fs = require('fs');
 const audio = require('./routes/audio');
 const picture = require('./routes/picture');
 const user = require('./routes/user');
+const group = require('./routes/group');
 
 const logger = require('./middleware/logger');
 const noCache = require('./middleware/no-cache');
@@ -25,5 +26,6 @@ app.use(noCache);
 app.use('/audio', audio);
 app.use('/picture', picture);
 app.use('/user', user);
+app.use('/group', group);
 
-app.listen(port, () => console.log(`Starting API at ${port}`));
+app.listen(port, () => console.log(`Starting API on port ${port}`));
