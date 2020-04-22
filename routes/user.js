@@ -50,7 +50,8 @@ user.get('/me', auth, async (req, res) => {
 	try {
 		const data = await client.query(`
 			SELECT username, firstname, lastname, email, picture, audio 
-			FROM Users WHERE UserName=$1;`,
+			FROM Users
+			WHERE UserName=$1;`,
 			[req.token.client_id]
 		);
 		if (data.rows.length === 1) {
@@ -70,7 +71,8 @@ user.get('/:id', auth, async (req, res) => {
 	try {
 		const data = await client.query(`
 			SELECT username, firstname, lastname, email, picture, audio 
-			FROM Users WHERE UserName=$1;`,
+			FROM Users
+			WHERE UserName=$1;`,
 			[req.params.id]
 		);
 		if (data.rows.length === 1) {
