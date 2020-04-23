@@ -7,10 +7,11 @@ const group = express.Router();
 group.use('/all', auth, async (req, res) => {
 	try {
 		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio
-			FROM Users;
+			SELECT username
+			FROM Users
+			ORDER BY username ASC;
 		`);
-		const members = data.rows;
+		const members = data.rows.map(entry => entry.username);
 
 		res.json({
 			name: "John Doe's Group",

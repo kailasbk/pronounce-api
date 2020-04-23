@@ -49,7 +49,7 @@ user.post('/login', express.json(), async (req, res) => {
 user.get('/me', auth, async (req, res) => {
 	try {
 		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio 
+			SELECT username, firstname, lastname, pronouns, email, picture, audio
 			FROM Users
 			WHERE UserName=$1;`,
 			[req.token.client_id]
@@ -70,7 +70,7 @@ user.get('/me', auth, async (req, res) => {
 user.get('/:id', auth, async (req, res) => {
 	try {
 		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio 
+			SELECT username, firstname, lastname, pronouns, email, picture, audio 
 			FROM Users
 			WHERE UserName=$1;`,
 			[req.params.id]
