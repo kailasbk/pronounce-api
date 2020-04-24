@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const upload = multer();
+const sharp = require('sharp');
 const client = require('../db');
 const auth = require('../middleware/auth');
 
@@ -48,8 +49,10 @@ picture.get('/:id', auth, async (req, res) => {
 
 picture.put('/', auth, upload.single('image'), async (req, res) => {
 	try {
-		console.log(req.file.buffer);
-		await client.query("UPDATE Users SET Picture=$1 WHERE Username=$2;", [req.file.buffer, req.token.client_id]);
+		const buffer = await sharp(req.file.buffer)
+			.resize(200, 200)
+			.toBuffer();
+		await client.query("UPDATE Users SET Picture=$1 WHERE Username=$2;", [buffer, req.token.client_id]);
 		res.sendStatus(204);
 	} catch (err) {
 		console.log(err);
