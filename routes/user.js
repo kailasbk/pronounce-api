@@ -1,6 +1,7 @@
 const express = require('express');
 const client = require('../db');
 const auth = require('../middleware/auth');
+const users = require('../db/tables/users');
 
 // mounted at /user
 const user = express.Router();
@@ -8,66 +9,48 @@ user.use(auth);
 
 user.get('/:id', async (req, res) => {
 	try {
-		const data = await client.query(`
-			SELECT username, firstname, lastname, pronouns, email
-			FROM Users
-			WHERE username=$1;`,
-			[req.params.id]
-		);
-		if (data.rows.length === 1) {
-			var user = data.rows[0];
-			res.json(user);
-		}
-		else {
-			res.sendStatus(404);
-		}
+		const info = await users.getInfo(req.params.id);
+		res.json(info);
 	} catch (err) {
 		console.log(err);
-		res.sendStatus(500);
-	}
-});
-
-user.get('/:id/audio', async (req, res) => {
-	try {
-		const data = await client.query(`
-			SELECT Picture
-			FROM Users
-			WHERE Username=$1;`,
-			[req.params.id]
-		);
-		if (data.rows.length > 0) {
-			const image = data.rows[0].picture;
-			res.type('image/jpeg');
-			res.send(image);
-		}
-		else {
+		if (err === 'Not Found') {
 			res.sendStatus(404);
 		}
-	} catch (err) {
-		console.log(err);
-		res.sendStatus(500);
+		else {
+			res.sendStatus(500);
+		}
 	}
 });
 
 user.get('/:id/picture', async (req, res) => {
 	try {
-		const data = await client.query(`
-			SELECT Audio
-			FROM Users
-			WHERE Username=$1;`,
-			[req.params.id]
-		);
-		if (data.rows.length > 0) {
-			const image = data.rows[0].audio;
-			res.type('audio/ogg');
-			res.send(image);
-		}
-		else {
-			res.sendStatus(404);
-		}
+		const picture = await users.getPicture(req.params.id);
+		res.type('image/jpeg');
+		res.send(picture);
 	} catch (err) {
 		console.log(err);
-		res.sendStatus(500);
+		if (err === 'Not Found') {
+			res.sendStatus(404);
+		}
+		else {
+			res.sendStatus(500);
+		}
+	}
+});
+
+user.get('/:id/audio', async (req, res) => {
+	try {
+		const audio = await users.getAudio(req.params.id);
+		res.type('audio/ogg');
+		res.send(audio);
+	} catch (err) {
+		console.log(err);
+		if (err === 'Not Found') {
+			res.sendStatus(404);
+		}
+		else {
+			res.sendStatus(500);
+		}
 	}
 });
 

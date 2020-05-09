@@ -2,19 +2,21 @@ const express = require('express');
 const client = require('../db');
 const auth = require('../middleware/auth');
 
+// mounted at /group
 const group = express.Router();
+group.use(auth);
 
-group.use('/all', auth, async (req, res) => {
+group.get('/all', async (req, res) => {
 	try {
 		const data = await client.query(`
 			SELECT username
 			FROM Users
-			ORDER BY username ASC;
-		`);
+			ORDER BY username ASC;`
+		);
 		const members = data.rows.map(entry => entry.username);
 
 		res.json({
-			name: "John Doe's Group",
+			name: "Users",
 			members: members
 		});
 	}
@@ -24,17 +26,43 @@ group.use('/all', auth, async (req, res) => {
 	}
 });
 
-group.use('/new', auth, async (req, res) => {
+group.post('/new', express.json(), async (req, res) => {
+	try {
+		await client.query(`
+			INSERT INTO Groups (name, owner, members)
+			VALUES ($1, $2, $3);`,
+			[req.body.name, req.token.client_id, req.body.members]
+		);
+
+		res.sendStatus(204);
+	}
+	catch (err) {
+		console.log(err);
+		if (err.constraint === 'groups_owner_fkey') {
+			res.sendStatus(400);
+		}
+		res.sendStatus(500);
+	}
+});
+
+group.get('/:id', async (req, res) => {
 	try {
 		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio
-			FROM Users;
-		`);
-		const members = data.rows;
+			SELECT name, owner, members
+			FROM Groups
+			WHERE id=$1;`,
+			[req.params.id]
+		);
+		const name = data.rows[0].name;
+		const owner = data.rows[0].owner;
+		const members = data.rows[0].members;
+		const sorted = members.sort();
 
 		res.json({
-			name: "John Doe's Group",
-			members: members
+			name: name,
+			owner: owner,
+			members: sorted,
+			me: req.token.client_id
 		});
 	}
 	catch (err) {
@@ -43,18 +71,16 @@ group.use('/new', auth, async (req, res) => {
 	}
 });
 
-group.use('/:id', auth, async (req, res) => {
+group.post('/:id/add', express.json(), async (req, res) => {
 	try {
-		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio
-			FROM Users;
-		`);
-		const members = data.rows;
+		await client.query(`
+		 	UPDATE Groups
+			SET members=members || $1
+			WHERE id=$2 AND owner=$3;`,
+			[req.body.members, req.params.id, req.token.client_id]
+		);
 
-		res.json({
-			name: "John Doe's Group",
-			members: members
-		});
+		res.sendStatus(204);
 	}
 	catch (err) {
 		console.log(err);
@@ -62,18 +88,18 @@ group.use('/:id', auth, async (req, res) => {
 	}
 });
 
-group.use('/:id/add', auth, async (req, res) => {
+group.post('/:id/remove', express.json(), async (req, res) => {
 	try {
-		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio
-			FROM Users;
-		`);
-		const members = data.rows;
-
-		res.json({
-			name: "John Doe's Group",
-			members: members
+		req.body.members.forEach(async (member) => {
+			await client.query(`
+		 		UPDATE Groups
+				SET members=array_remove(members, $1)
+				WHERE id=$2 AND owner=$3;`,
+				[member, req.params.id, req.token.client_id]
+			);
 		});
+
+		res.sendStatus(204);
 	}
 	catch (err) {
 		console.log(err);
@@ -81,18 +107,15 @@ group.use('/:id/add', auth, async (req, res) => {
 	}
 });
 
-group.use('/:id/delete', auth, async (req, res) => {
+group.delete('/:id', async (req, res) => {
 	try {
-		const data = await client.query(`
-			SELECT username, firstname, lastname, email, picture, audio
-			FROM Users;
-		`);
-		const members = data.rows;
+		await client.query(`
+			DELETE FROM Groups
+			WHERE id=$1 AND owner=$2`,
+			[req.params.id, req.token.client_id]
+		);
 
-		res.json({
-			name: "John Doe's Group",
-			members: members
-		});
+		res.sendStatus(204);
 	}
 	catch (err) {
 		console.log(err);

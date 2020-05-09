@@ -4,18 +4,28 @@ const upload = multer();
 const sharp = require('sharp');
 const client = require('../db');
 const auth = require('../middleware/auth');
+const users = require('../db/tables/users');
 
 // mounted at /user/0
-const me = express.Router();
-me.use(auth);
+const profile = express.Router();
+profile.use(auth);
 
-me.get('/', async (req, res) => {
-	const path = `/user/${req.token.client_id}`
-	console.log(`Request redirected to ${path}`);
-	res.redirect(path);
+profile.get('/', async (req, res) => {
+	try {
+		const info = await users.getInfo(req.token.client_id);
+		res.json(info);
+	} catch (err) {
+		console.log(err);
+		if (err === 'Not Found') {
+			res.sendStatus(404);
+		}
+		else {
+			res.sendStatus(500);
+		}
+	}
 });
 
-me.put('/update', express.json(), async (req, res) => {
+profile.put('/update', express.json(), async (req, res) => {
 	try {
 		await client.query(`
 			UPDATE Users
@@ -31,18 +41,28 @@ me.put('/update', express.json(), async (req, res) => {
 	}
 });
 
-me.route('/audio')
+profile.route('/audio')
 	.get(async (req, res) => {
-		const path = `/user/${req.token.client_id}/audio`
-		console.log(`Request redirected to ${path}`);
-		res.redirect(path);
+		try {
+			const audio = await users.getAudio(req.token.client_id);
+			res.type('audio/ogg');
+			res.send(audio);
+		} catch (err) {
+			console.log(err);
+			if (err === 'Not Found') {
+				res.sendStatus(404);
+			}
+			else {
+				res.sendStatus(500);
+			}
+		}
 	})
 	.put(upload.single('file'), async (req, res) => {
 		try {
 			await client.query(`
 				UPDATE Users
-				SET Audio=$1 
-				WHERE Username=$2;`,
+				SET audio=$1 
+				WHERE username=$2;`,
 				[req.file.buffer, req.token.client_id]
 			);
 			res.sendStatus(204);
@@ -52,11 +72,21 @@ me.route('/audio')
 		}
 	});
 
-me.route('/picture')
+profile.route('/picture')
 	.get(async (req, res) => {
-		const path = `/user/${req.token.client_id}/picture`;
-		console.log(`Request redirected to ${path}`);
-		res.redirect(path);
+		try {
+			const picture = await users.getPicture(req.token.client_id);
+			res.type('image/jpeg');
+			res.send(picture);
+		} catch (err) {
+			console.log(err);
+			if (err === 'Not Found') {
+				res.sendStatus(404);
+			}
+			else {
+				res.sendStatus(500);
+			}
+		}
 	})
 	.put(upload.single('file'), async (req, res) => {
 		try {
@@ -65,8 +95,8 @@ me.route('/picture')
 				.toBuffer();
 			await client.query(`
 				UPDATE Users
-				SET Picture=$1
-				WHERE Username=$2;`,
+				SET picture=$1
+				WHERE username=$2;`,
 				[buffer, req.token.client_id]
 			);
 			res.sendStatus(204);
@@ -76,7 +106,7 @@ me.route('/picture')
 		}
 	});
 
-me.get('/groups', async (req, res) => {
+profile.get('/groups', async (req, res) => {
 	try {
 		const data = await client.query(`
 			SELECT id, name
@@ -94,4 +124,4 @@ me.get('/groups', async (req, res) => {
 	}
 });
 
-module.exports = me;
+module.exports = profile;
