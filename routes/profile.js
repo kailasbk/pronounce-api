@@ -29,9 +29,9 @@ profile.put('/update', express.json(), async (req, res) => {
 	try {
 		await client.query(`
 			UPDATE Users
-			SET firstname=$1, lastname=$2, pronouns=$3
-			WHERE username=$4;`,
-			[req.body.firstname, req.body.lastname, req.body.pronouns, req.token.client_id]
+			SET firstname=$1, nickname=$2, lastname=$3, pronouns=$4
+			WHERE username=$5;`,
+			[req.body.firstname, req.body.nickname, req.body.lastname, req.body.pronouns, req.token.client_id]
 		);
 
 		res.sendStatus(204);
@@ -118,6 +118,23 @@ profile.get('/groups', async (req, res) => {
 		const groups = data.rows;
 
 		res.json(groups);
+	} catch (err) {
+		console.log(err);
+		res.sendStatus(500);
+	}
+});
+
+profile.get('/invites', async (req, res) => {
+	try {
+		const data = await client.query(`
+			SELECT id
+			FROM Invites
+			WHERE email=$1`,
+			[req.token.email]
+		);
+
+		const invites = data.rows.map(invite => invite.id);
+		res.json(invites);
 	} catch (err) {
 		console.log(err);
 		res.sendStatus(500);

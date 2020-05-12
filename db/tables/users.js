@@ -4,7 +4,7 @@ const users = {};
 
 users.getInfo = async (name) => {
 	const data = await client.query(`
-		SELECT username, firstname, lastname, pronouns, email
+		SELECT username, firstname, nickname, lastname, pronouns, email
 		FROM Users
 		WHERE username=$1;`,
 		[name]
