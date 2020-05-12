@@ -1,6 +1,7 @@
 const express = require('express');
 const client = require('../db');
 const auth = require('../middleware/auth');
+const transport = require('../email');
 
 // mounted at /group
 const group = express.Router();
@@ -9,15 +10,30 @@ group.use(auth);
 group.get('/all', async (req, res) => {
 	try {
 		const data = await client.query(`
-			SELECT username
-			FROM Users
-			ORDER BY username ASC;`
+			SELECT owner, members
+			FROM Groups
+			WHERE owner=$1 OR members@>ARRAY[$1];`,
+			[req.token.client_id]
 		);
-		const members = data.rows.map(entry => entry.username);
+
+		let members = [];
+		data.rows.forEach(entry => {
+			members = members.concat(([entry.owner].concat(entry.members)));
+		});
+
+		let sorted = [];
+		members.forEach(value => {
+			if (!sorted.includes(value) && value !== req.token.client_id) {
+				sorted.push(value);
+			}
+		})
+		members = sorted;
 
 		res.json({
-			name: "Users",
-			members: members
+			name: 'All groups',
+			owner: req.token.client_id,
+			members: members,
+			me: req.token.client_id
 		});
 	}
 	catch (err) {
@@ -28,10 +44,11 @@ group.get('/all', async (req, res) => {
 
 group.post('/new', express.json(), async (req, res) => {
 	try {
+		const members = req.body.members ? req.body.members : [];
 		await client.query(`
 			INSERT INTO Groups (name, owner, members)
 			VALUES ($1, $2, $3);`,
-			[req.body.name, req.token.client_id, req.body.members]
+			[req.body.name, req.token.client_id, members]
 		);
 
 		res.sendStatus(204);
@@ -71,16 +88,56 @@ group.get('/:id', async (req, res) => {
 	}
 });
 
-group.post('/:id/add', express.json(), async (req, res) => {
+group.post('/:id/invite', express.json(), async (req, res) => {
 	try {
-		await client.query(`
-		 	UPDATE Groups
-			SET members=members || $1
-			WHERE id=$2 AND owner=$3;`,
-			[req.body.members, req.params.id, req.token.client_id]
-		);
+		const data = await client.query('SELECT owner FROM Groups WHERE id=$1;', [req.params.id]);
+		const owner = data.rows[0].owner;
 
-		res.sendStatus(204);
+		if (owner === req.token.client_id) {
+			const emails = req.body.emails;
+			let valueString = '';
+			emails.forEach((value, index) => {
+				valueString += `('${req.params.id}', '${value}')`;
+				if (index < emails.length - 1) {
+					valueString += ',';
+				}
+			});
+
+			await client.query(`
+				INSERT INTO Invites (groupId, email)
+				VALUES ${valueString};`,
+			);
+
+			let emailData = emails.map(value =>
+				({
+					to: value,
+					content: `
+							<p> Hey there! <p>
+							<p> You have been invited to join a pronouncit group! </p>
+							<p> <u> Already a user? </u> </p>
+							<p> Login here: <a href="www.pronouncit.app/login"> www.pronouncit.app/login </a> </p>
+							<p> <u> Don't have an account? </u> </p>
+							<p> Signup here: <a href="www.pronouncit.app/register?email=${value}"> www.pronouncit.app/register <a> </p>
+							`
+				})
+			);
+
+			const promises = emailData.map(value => {
+				return transport.sendMail({
+					from: "bot@pronouncit.app",
+					to: value.to,
+					subject: "New pronouncit invite",
+					html: value.content
+				});
+			})
+
+			await Promise.all(promises);
+
+			res.sendStatus(204);
+		}
+		else {
+			res.sendStatus(401);
+		}
 	}
 	catch (err) {
 		console.log(err);
@@ -97,6 +154,12 @@ group.post('/:id/remove', express.json(), async (req, res) => {
 				WHERE id=$2 AND owner=$3;`,
 				[member, req.params.id, req.token.client_id]
 			);
+
+			await client.query(`
+				DELETE FROM Invites
+				WHERE email IN (SELECT email FROM Users WHERE username=$1)`,
+				[member]
+			);
 		});
 
 		res.sendStatus(204);
@@ -109,13 +172,26 @@ group.post('/:id/remove', express.json(), async (req, res) => {
 
 group.delete('/:id', async (req, res) => {
 	try {
-		await client.query(`
+		const data = await client.query('SELECT owner FROM Groups WHERE id=$1;', [req.params.id]);
+		const owner = data.rows[0].owner;
+
+		if (owner === req.params.id) {
+			await client.query(`
 			DELETE FROM Groups
 			WHERE id=$1 AND owner=$2`,
-			[req.params.id, req.token.client_id]
-		);
+				[req.params.id, req.token.client_id]
+			);
 
-		res.sendStatus(204);
+			await client.query(`
+			DELETE FROM Invites
+			WHERE groupid=$1;`,
+				[req.params.id]
+			);
+			res.sendStatus(204);
+		}
+		else {
+			res.sendStatus(401);
+		}
 	}
 	catch (err) {
 		console.log(err);

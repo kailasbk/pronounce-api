@@ -12,6 +12,7 @@ const account = require('./routes/account');
 const user = require('./routes/user');
 const profile = require('./routes/profile');
 const group = require('./routes/group');
+const invite = require('./routes/invite');
 const admin = require('./routes/admin');
 
 const logger = require('./middleware/logger');
@@ -24,6 +25,7 @@ app.use('/account', account);
 app.use('/user/0', profile);
 app.use('/user', user);
 app.use('/group', group);
+app.use('/invite', invite);
 app.use('/admin', admin);
 
 app.listen(port, () => console.log(`Starting API on port ${port}`));
