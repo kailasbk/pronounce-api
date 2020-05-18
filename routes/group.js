@@ -177,14 +177,14 @@ group.delete('/:id', async (req, res) => {
 
 		if (owner === req.params.id) {
 			await client.query(`
-			DELETE FROM Groups
-			WHERE id=$1 AND owner=$2`,
+				DELETE FROM Groups
+				WHERE id=$1 AND owner=$2`,
 				[req.params.id, req.token.client_id]
 			);
 
 			await client.query(`
-			DELETE FROM Invites
-			WHERE groupid=$1;`,
+				DELETE FROM Invites
+				WHERE groupid=$1;`,
 				[req.params.id]
 			);
 			res.sendStatus(204);
