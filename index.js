@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3001;
+require('dotenv').config();
+const port = 3001;
 
 const cors = require('cors');
 app.use(cors({
@@ -8,14 +9,12 @@ app.use(cors({
 }));
 app.disable('x-powered-by');
 
-const multer = require('multer');
-const upload = multer();
-const fs = require('fs');
-
-const audio = require('./routes/audio');
-const picture = require('./routes/picture');
+const account = require('./routes/account');
 const user = require('./routes/user');
+const profile = require('./routes/profile');
 const group = require('./routes/group');
+const invite = require('./routes/invite');
+const admin = require('./routes/admin');
 
 const logger = require('./middleware/logger');
 const noCache = require('./middleware/no-cache');
@@ -23,9 +22,11 @@ const noCache = require('./middleware/no-cache');
 app.use(logger);
 app.use(noCache);
 
-app.use('/audio', audio);
-app.use('/picture', picture);
+app.use('/account', account);
+app.use('/user/0', profile);
 app.use('/user', user);
 app.use('/group', group);
+app.use('/invite', invite);
+app.use('/admin', admin);
 
 app.listen(port, () => console.log(`Starting API on port ${port}`));
