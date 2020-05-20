@@ -93,17 +93,26 @@ admin.post('/init', auth, async (req, res) => {
 			CREATE TABLE Groups (
 				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
 				name text NOT NULL,
-				owner text,
+				owner text NOT NULL,
 				members text[],
 				FOREIGN KEY (owner) REFERENCES Users(username)
 			);
 
 			CREATE TABLE Invites (
 				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
-				groupId text,
-				email text,
+				groupId text NOT NULL,
+				email text NOT NULL,
 				FOREIGN KEY (groupId) REFERENCES Groups(id)
 			);
+
+			CREATE TYPE reset_t AS ENUM('password', 'email');
+
+			CREATE TABLE Resets (
+				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
+				type reset_t,
+				email text NOT NULL,
+				FOREIGN KEY (email) REFERENCES Users(email)
+			);	
 		`);
 
 		res.sendStatus(204);
@@ -117,6 +126,8 @@ admin.post('/init', auth, async (req, res) => {
 admin.delete('/delete', auth, async (req, res) => {
 	try {
 		await client.query(`
+			DROP TABLE Resets;
+			DROP TYPE reset_t;
 			DROP TABLE Invites;
 			DROP TABLE Groups;
 			DROP TABLE Users;
