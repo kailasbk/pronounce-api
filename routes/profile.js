@@ -12,7 +12,7 @@ profile.use(auth);
 
 profile.get('/', async (req, res) => {
 	try {
-		const info = await users.getInfo(req.token.client_id);
+		const info = await users.getInfo(req.token.username);
 		res.json(info);
 	} catch (err) {
 		console.log(err);
@@ -31,7 +31,7 @@ profile.put('/update', express.json(), async (req, res) => {
 			UPDATE Users
 			SET firstname=$1, nickname=$2, lastname=$3, pronouns=$4
 			WHERE username=$5;`,
-			[req.body.firstname, req.body.nickname, req.body.lastname, req.body.pronouns, req.token.client_id]
+			[req.body.firstname, req.body.nickname, req.body.lastname, req.body.pronouns, req.token.username]
 		);
 
 		res.sendStatus(204);
@@ -44,7 +44,7 @@ profile.put('/update', express.json(), async (req, res) => {
 profile.route('/audio')
 	.get(async (req, res) => {
 		try {
-			const audio = await users.getAudio(req.token.client_id);
+			const audio = await users.getAudio(req.token.username);
 			res.type('audio/ogg');
 			res.send(audio);
 		} catch (err) {
@@ -63,7 +63,7 @@ profile.route('/audio')
 				UPDATE Users
 				SET audio=$1 
 				WHERE username=$2;`,
-				[req.file.buffer, req.token.client_id]
+				[req.file.buffer, req.token.username]
 			);
 			res.sendStatus(204);
 		} catch (err) {
@@ -75,7 +75,7 @@ profile.route('/audio')
 profile.route('/picture')
 	.get(async (req, res) => {
 		try {
-			const picture = await users.getPicture(req.token.client_id);
+			const picture = await users.getPicture(req.token.username);
 			res.type('image/jpeg');
 			res.send(picture);
 		} catch (err) {
@@ -97,7 +97,7 @@ profile.route('/picture')
 				UPDATE Users
 				SET picture=$1
 				WHERE username=$2;`,
-				[buffer, req.token.client_id]
+				[buffer, req.token.username]
 			);
 			res.sendStatus(204);
 		} catch (err) {
@@ -112,7 +112,7 @@ profile.get('/groups', async (req, res) => {
 			SELECT id, name
 			FROM Groups
 			WHERE owner=$1 OR members@>ARRAY[$1];`,
-			[req.token.client_id]
+			[req.token.username]
 		);
 
 		const groups = data.rows;

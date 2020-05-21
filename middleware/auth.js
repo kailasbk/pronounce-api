@@ -1,14 +1,26 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const client = require('../db');
+
+function getKey(header, callback) {
+	client.query(`SELECT key FROM Keys WHERE id=$1`, [header.kid])
+		.then(res => {
+			callback(null, res.rows[0].key);
+		});
+}
 
 function auth(req, res, next) {
 	const bearer = req.header('Authorization');
 	try {
 		const token = bearer.split(' ')[1];
-		const payload = jwt.verify(token, 'secret');
-		req.token = payload;
-		console.log('Authorized user: ' + req.token.client_id);
-		next();
+		jwt.verify(token, getKey, function (err, payload) {
+			if (err) {
+				throw 'Invalid JWT'
+			}
+			req.token = payload;
+			console.log('Authorized user: ' + req.token.username);
+			next();
+		});
 	} catch (err) {
 		console.log('Unauthorized user');
 		res.sendStatus(401);

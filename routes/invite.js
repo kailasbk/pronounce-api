@@ -45,7 +45,7 @@ invite.post('/:id/accept', async (req, res) => {
 			UPDATE Groups
 			SET members=array_remove(members, $2) || $2
 			WHERE id IN (SELECT groupid FROM Invites WHERE id=$1);`,
-			[req.params.id, req.token.client_id]
+			[req.params.id, req.token.username]
 		);
 
 		await client.query(`

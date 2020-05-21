@@ -28,6 +28,7 @@ account.post('/register', express.json(), async (req, res) => {
 					<p> Thanks for creating an account at pronouncit.app! </p>
 					<p> Before you can use your account, you need to verify it <a href="www.pronouncit.app/verify/${data.rows[0].verified}">here.</a></p>`
 		});
+		console.log(`Verification email sent to ${data.rows[0].email}`);
 
 		res.sendStatus(204);
 	} catch (err) {
@@ -54,9 +55,16 @@ account.post('/login', express.json(), async (req, res) => {
 		);
 		if (data.rows.length === 1) {
 			const claims = data.rows[0];
+			await client.query(`DELETE FROM Refreshes WHERE username=$1`, [claims.username]);
+			await client.query(`INSERT INTO Refreshes (username) VALUES ($1)`, [claims.username]);
+			const refresh = (await client.query(`SELECT id FROM Refreshes WHERE username=$1`, [claims.username])).rows[0].id;
+			const secret = (await client.query(`SELECT id, key FROM Keys WHERE ID=$1`, [1])).rows[0];
 			if (claims.verified === 'verified') {
-				const token = jwt.sign({ client_id: claims.username, email: claims.email }, 'secret');
-				res.send(token);
+				const token = jwt.sign({ username: claims.username, email: claims.email }, secret.key, { keyid: secret.id.toString() });
+				res.send({
+					token,
+					refresh
+				});
 			}
 			else {
 				res.sendStatus(401);
@@ -87,6 +95,7 @@ account.post('/resend/:id', async (req, res) => {
 						<p> Thanks for creating an account at pronouncit.app! </p>
 						<p> Before you can use your account, you need to verify it <a href="www.pronouncit.app/verify/${data.rows[0].verified}">here.</a></p>`
 			});
+			console.log(`Verification email sent to ${data.rows[0].email}`);
 		}
 		else {
 			console.log('Account already verified.')
@@ -144,6 +153,7 @@ account.post('/reset/new/:type', auth, async (req, res) => {
 					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
 					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
 		});
+		console.log(`Reset email sent to ${data.rows[0].email}`);
 
 		res.sendStatus(204);
 	} catch (err) {
@@ -152,10 +162,14 @@ account.post('/reset/new/:type', auth, async (req, res) => {
 	}
 });
 
-// need to void past credentials after updating password or email
-
 account.post('/reset/password', express.json(), async (req, res) => {
 	try {
+		await client.query(`
+			DELETE FROM Refreshes WHERE username IN
+			(SELECT username from Users WHERE email IN 
+			(SELECT email FROM Resets WHERE id=$1 AND type='password'));`,
+			[req.body.id]);
+
 		const data = await client.query(`
 			UPDATE Users
 			SET password=crypt($2, gen_salt('bf'))
@@ -226,8 +240,38 @@ account.post('/reset/email', express.json(), async (req, res) => {
 	}
 });
 
-account.post('/refresh', async (req, res) => {
-	res.sendStatus(200);
+account.post('/refresh', express.json(), async (req, res) => {
+	try {
+		const data = await client.query(`
+			SELECT username, email, verified
+			FROM Users
+			WHERE username IN (SELECT username FROM Refreshes WHERE id=$1)`,
+			[req.body.id]
+		);
+		if (data.rows.length === 1) {
+			const claims = data.rows[0];
+			await client.query(`DELETE FROM Refreshes WHERE username=$1`, [claims.username]);
+			await client.query(`INSERT INTO Refreshes (username) VALUES ($1)`, [claims.username]);
+			const refresh = (await client.query(`SELECT id FROM Refreshes WHERE username=$1`, [claims.username])).rows[0].id;
+			const secret = (await client.query(`SELECT id, key FROM Keys WHERE ID=$1`, [1])).rows[0];
+			if (claims.verified === 'verified') {
+				const token = jwt.sign({ username: claims.username, email: claims.email }, secret.key, { keyid: secret.id.toString() });
+				res.send({
+					token,
+					refresh
+				});
+			}
+			else {
+				res.sendStatus(401);
+			}
+		}
+		else {
+			res.sendStatus(404);
+		}
+	} catch (err) {
+		console.log(err);
+		res.sendStatus(500);
+	}
 });
 
 // not live (move to admin?)
@@ -237,11 +281,11 @@ account.delete('/', auth, async (req, res) => {
 		const data = await client.query(`
 		DELETE FROM Users
 		WHERE username = $1; `,
-			[req.token.client_id]
+			[req.token.username]
 		);
 		if (data.rows.length === 1) {
 			const claims = data.rows[0];
-			const token = jwt.sign({ client_id: claims.username, email: claims.email }, 'secret');
+			const token = jwt.sign({ username: claims.username, email: claims.email }, 'secret');
 			res.send(token);
 		}
 		else {

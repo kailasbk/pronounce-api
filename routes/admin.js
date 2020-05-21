@@ -77,6 +77,13 @@ admin.post('/init', auth, async (req, res) => {
 		await client.query(`
 			CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+			CREATE TABLE Keys (
+				id SERIAL PRIMARY KEY,
+				key text DEFAULT encode(gen_random_bytes(32), 'hex') 
+			);
+
+			INSERT INTO Keys DEFAULT VALUES;
+
 			CREATE TABLE Users (
 				username text PRIMARY KEY,
 				password text NOT NULL,
@@ -88,6 +95,12 @@ admin.post('/init', auth, async (req, res) => {
 				verified text DEFAULT encode(gen_random_bytes(8), 'hex'),
 				picture bytea,
 				audio bytea
+			);
+			
+			CREATE TABLE Refreshes (
+				id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+				username text,
+				FOREIGN KEY (username) REFERENCES Users(username)
 			);
 
 			CREATE TABLE Groups (
@@ -130,6 +143,7 @@ admin.delete('/delete', auth, async (req, res) => {
 			DROP TYPE reset_t;
 			DROP TABLE Invites;
 			DROP TABLE Groups;
+			DROP TABLE Keys;
 			DROP TABLE Users;
 		`);
 

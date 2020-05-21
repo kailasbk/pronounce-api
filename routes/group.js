@@ -13,7 +13,7 @@ group.get('/all', async (req, res) => {
 			SELECT owner, members
 			FROM Groups
 			WHERE owner=$1 OR members@>ARRAY[$1];`,
-			[req.token.client_id]
+			[req.token.username]
 		);
 
 		let members = [];
@@ -23,7 +23,7 @@ group.get('/all', async (req, res) => {
 
 		let sorted = [];
 		members.forEach(value => {
-			if (!sorted.includes(value) && value !== req.token.client_id) {
+			if (!sorted.includes(value) && value !== req.token.username) {
 				sorted.push(value);
 			}
 		})
@@ -31,9 +31,9 @@ group.get('/all', async (req, res) => {
 
 		res.json({
 			name: 'All groups',
-			owner: req.token.client_id,
+			owner: req.token.username,
 			members: members,
-			me: req.token.client_id
+			me: req.token.username
 		});
 	}
 	catch (err) {
@@ -48,7 +48,7 @@ group.post('/new', express.json(), async (req, res) => {
 		await client.query(`
 			INSERT INTO Groups (name, owner, members)
 			VALUES ($1, $2, $3);`,
-			[req.body.name, req.token.client_id, members]
+			[req.body.name, req.token.username, members]
 		);
 
 		res.sendStatus(204);
@@ -79,7 +79,7 @@ group.get('/:id', async (req, res) => {
 			name: name,
 			owner: owner,
 			members: sorted,
-			me: req.token.client_id
+			me: req.token.username
 		});
 	}
 	catch (err) {
@@ -93,7 +93,7 @@ group.post('/:id/invite', express.json(), async (req, res) => {
 		const data = await client.query('SELECT owner FROM Groups WHERE id=$1;', [req.params.id]);
 		const owner = data.rows[0].owner;
 
-		if (owner === req.token.client_id) {
+		if (owner === req.token.username) {
 			const emails = req.body.emails;
 			let valueString = '';
 			emails.forEach((value, index) => {
@@ -152,7 +152,7 @@ group.post('/:id/remove', express.json(), async (req, res) => {
 		 		UPDATE Groups
 				SET members=array_remove(members, $1)
 				WHERE id=$2 AND owner=$3;`,
-				[member, req.params.id, req.token.client_id]
+				[member, req.params.id, req.token.username]
 			);
 
 			await client.query(`
@@ -179,7 +179,7 @@ group.delete('/:id', async (req, res) => {
 			await client.query(`
 				DELETE FROM Groups
 				WHERE id=$1 AND owner=$2`,
-				[req.params.id, req.token.client_id]
+				[req.params.id, req.token.username]
 			);
 
 			await client.query(`
