@@ -139,7 +139,7 @@ account.post('/reset/new/:type', auth, async (req, res) => {
 		await transport.sendMail({
 			from: 'bot@pronouncit.app',
 			to: data.rows[0].email,
-			subject: `Reset you Pronoucit ${data.rows[0].type}`,
+			subject: `Reset you Pronouncit ${data.rows[0].type}`,
 			html: `	<p> Hey there! <p>
 					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
 					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
@@ -183,10 +183,8 @@ account.post('/reset/password', express.json(), async (req, res) => {
 
 account.post('/reset/email', express.json(), async (req, res) => {
 	try {
-		console.log('disabling triggers')
 		await client.query(`ALTER TABLE Users DISABLE TRIGGER ALL;`);
 
-		console.log('running request')
 		const data = await client.query(`
 			UPDATE Users
 			SET email=$2, verified=encode(gen_random_bytes(8), 'hex')
@@ -194,7 +192,6 @@ account.post('/reset/email', express.json(), async (req, res) => {
 			[req.body.id, req.body.value]
 		);
 
-		console.log('enabling triggers')
 		await client.query(`ALTER TABLE Users ENABLE TRIGGER ALL;`);
 
 		if (data.rowCount === 1) {
