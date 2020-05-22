@@ -12,24 +12,24 @@ function auth(req, res, next) {
 		const token = bearer.split(' ')[1];
 		const payload = jwt.verify(token, process.env.ADMIN_SECRET);
 		if (payload.admin === true) {
-			console.log('Authorized admin');
+			res.logger.add('Authorized admin');
 			next();
 		}
 		else {
 			throw 'Unauthorized';
 		}
 	} catch (err) {
-		console.log(err);
-		console.log('Unauthorized user');
+		res.logger.add(err);
+		res.logger.add('Unauthorized user');
 		res.sendStatus(401);
 	}
 }
 
-admin.get('/', auth, async (req, res) => {
+admin.get('/', auth, async (req, res, next) => {
 	res.send('Admin Page! (under development)');
 });
 
-admin.post('/login', express.json(), async (req, res) => {
+admin.post('/login', express.json(), async (req, res, next) => {
 	try {
 		if (req.body.password === process.env.ADMIN_PASSWORD) {
 			const token = jwt.sign({ admin: true }, process.env.ADMIN_SECRET);
@@ -40,11 +40,15 @@ admin.post('/login', express.json(), async (req, res) => {
 		}
 	}
 	catch (err) {
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.get('/users', auth, async (req, res) => {
+admin.get('/users', auth, async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT username, email FROM Users;
@@ -53,12 +57,15 @@ admin.get('/users', auth, async (req, res) => {
 		res.send(data.rows);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.get('/groups', auth, async (req, res) => {
+admin.get('/groups', auth, async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT id, name, owner FROM Groups;
@@ -67,12 +74,15 @@ admin.get('/groups', auth, async (req, res) => {
 		res.send(data.rows);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.post('/init', auth, async (req, res) => {
+admin.post('/init', auth, async (req, res, next) => {
 	try {
 		await client.query(`
 			CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -131,12 +141,15 @@ admin.post('/init', auth, async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.delete('/delete', auth, async (req, res) => {
+admin.delete('/delete', auth, async (req, res, next) => {
 	try {
 		await client.query(`
 			DROP TABLE Resets;
@@ -150,12 +163,15 @@ admin.delete('/delete', auth, async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.post('/email', auth, async (req, res) => {
+admin.post('/email', auth, async (req, res, next) => {
 	await transport.sendMail({
 		from: "bot@pronouncit.app",
 		to: "kailasbk230@gmail.com",
@@ -168,6 +184,7 @@ admin.post('/email', auth, async (req, res) => {
 				<p> Signup here: <a href="www.pronouncit.app/register?email=kailasbk230@gmail.com"> www.pronouncit.app/register </a> <p>`
 	});
 	res.sendStatus(200);
+	next();
 });
 
 module.exports = admin;

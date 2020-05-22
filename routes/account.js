@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 // mounted at /account
 const account = express.Router();
 
-account.post('/register', express.json(), async (req, res) => {
+account.post('/register', express.json(), async (req, res, next) => {
 	try {
 		await client.query(`
 			INSERT INTO Users (username, firstname, lastname, email, password)
@@ -28,7 +28,7 @@ account.post('/register', express.json(), async (req, res) => {
 					<p> Thanks for creating an account at pronouncit.app! </p>
 					<p> Before you can use your account, you need to verify it <a href="www.pronouncit.app/verify/${data.rows[0].verified}">here.</a></p>`
 		});
-		console.log(`Verification email sent to ${data.rows[0].email}`);
+		res.logger.add(`Verification email sent to ${data.rows[0].email}`);
 
 		res.sendStatus(204);
 	} catch (err) {
@@ -43,9 +43,12 @@ account.post('/register', express.json(), async (req, res) => {
 			res.sendStatus(500);
 		}
 	}
+	finally {
+		next();
+	}
 });
 
-account.post('/login', express.json(), async (req, res) => {
+account.post('/login', express.json(), async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT username, email, verified
@@ -74,12 +77,15 @@ account.post('/login', express.json(), async (req, res) => {
 			res.sendStatus(404);
 		}
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/resend/:id', async (req, res) => {
+account.post('/resend/:id', async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT verified, email FROM Users WHERE username=$1`,
@@ -95,21 +101,24 @@ account.post('/resend/:id', async (req, res) => {
 						<p> Thanks for creating an account at pronouncit.app! </p>
 						<p> Before you can use your account, you need to verify it <a href="www.pronouncit.app/verify/${data.rows[0].verified}">here.</a></p>`
 			});
-			console.log(`Verification email sent to ${data.rows[0].email}`);
+			res.logger.add(`Verification email sent to ${data.rows[0].email}`);
 		}
 		else {
-			console.log('Account already verified.')
+			res.logger.add('Account already verified.')
 		}
 
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/verify/:id', async (req, res) => {
+account.post('/verify/:id', async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			UPDATE Users
@@ -125,12 +134,15 @@ account.post('/verify/:id', async (req, res) => {
 			throw 'Error updating table';
 		}
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/reset/new/:type', auth, async (req, res) => {
+account.post('/reset/new/:type', auth, async (req, res, next) => {
 	try {
 		await client.query(`
 			INSERT INTO Resets (email, type)
@@ -153,16 +165,19 @@ account.post('/reset/new/:type', auth, async (req, res) => {
 					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
 					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
 		});
-		console.log(`Reset email sent to ${data.rows[0].email}`);
+		res.logger.add(`Reset email sent to ${data.rows[0].email}`);
 
 		res.sendStatus(204);
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/reset/password', express.json(), async (req, res) => {
+account.post('/reset/password', express.json(), async (req, res, next) => {
 	try {
 		await client.query(`
 			DELETE FROM Refreshes WHERE username IN
@@ -190,12 +205,15 @@ account.post('/reset/password', express.json(), async (req, res) => {
 		}
 
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/reset/email', express.json(), async (req, res) => {
+account.post('/reset/email', express.json(), async (req, res, next) => {
 	try {
 		await client.query(`ALTER TABLE Users DISABLE TRIGGER ALL;`);
 
@@ -235,12 +253,15 @@ account.post('/reset/email', express.json(), async (req, res) => {
 			throw 'Email not updated';
 		}
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-account.post('/refresh', express.json(), async (req, res) => {
+account.post('/refresh', express.json(), async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT username, email, verified
@@ -269,14 +290,17 @@ account.post('/refresh', express.json(), async (req, res) => {
 			res.sendStatus(404);
 		}
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
 // not live (move to admin?)
 /*
-account.delete('/', auth, async (req, res) => {
+account.delete('/', auth, async (req, res, next) => {
 	try {
 		const data = await client.query(`
 		DELETE FROM Users
@@ -292,9 +316,12 @@ account.delete('/', auth, async (req, res) => {
 			res.sendStatus(400);
 		}
 	} catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
 	}
+finally {
+next();
+}
 });
 */
 

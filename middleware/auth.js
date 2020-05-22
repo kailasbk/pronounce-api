@@ -18,11 +18,11 @@ function auth(req, res, next) {
 				throw 'Invalid JWT'
 			}
 			req.token = payload;
-			console.log('Authorized user: ' + req.token.username);
+			res.logger.add('Authorized user: ' + req.token.username);
 			next();
 		});
 	} catch (err) {
-		console.log('Unauthorized user');
+		res.logger.add('Unauthorized user');
 		res.sendStatus(401);
 	}
 }

@@ -7,7 +7,7 @@ const transport = require('../email');
 const group = express.Router();
 group.use(auth);
 
-group.get('/all', async (req, res) => {
+group.get('/all', async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT owner, members
@@ -37,12 +37,15 @@ group.get('/all', async (req, res) => {
 		});
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next('router');
 	}
 });
 
-group.post('/new', express.json(), async (req, res) => {
+group.post('/new', express.json(), async (req, res, next) => {
 	try {
 		const members = req.body.members ? req.body.members : [];
 		await client.query(`
@@ -54,15 +57,19 @@ group.post('/new', express.json(), async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		if (err.constraint === 'groups_owner_fkey') {
 			res.sendStatus(400);
 		}
 		res.sendStatus(500);
 	}
+	finally {
+		next();
+	}
 });
 
-group.get('/:id', async (req, res) => {
+group.get('/:id', async (req, res, next) => {
+	res.logger.add('by id')
 	try {
 		const data = await client.query(`
 			SELECT name, owner, members
@@ -83,12 +90,15 @@ group.get('/:id', async (req, res) => {
 		});
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-group.post('/:id/invite', express.json(), async (req, res) => {
+group.post('/:id/invite', express.json(), async (req, res, next) => {
 	try {
 		const data = await client.query('SELECT owner FROM Groups WHERE id=$1;', [req.params.id]);
 		const owner = data.rows[0].owner;
@@ -140,12 +150,15 @@ group.post('/:id/invite', express.json(), async (req, res) => {
 		}
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-group.post('/:id/remove', express.json(), async (req, res) => {
+group.post('/:id/remove', express.json(), async (req, res, next) => {
 	try {
 		req.body.members.forEach(async (member) => {
 			await client.query(`
@@ -165,12 +178,15 @@ group.post('/:id/remove', express.json(), async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-group.delete('/:id', async (req, res) => {
+group.delete('/:id', async (req, res, next) => {
 	try {
 		const data = await client.query('SELECT owner FROM Groups WHERE id=$1;', [req.params.id]);
 		const owner = data.rows[0].owner;
@@ -194,8 +210,11 @@ group.delete('/:id', async (req, res) => {
 		}
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 

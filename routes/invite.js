@@ -6,7 +6,7 @@ const auth = require('../middleware/auth');
 const invite = express.Router();
 invite.use(auth);
 
-invite.get('/:id', async (req, res) => {
+invite.get('/:id', async (req, res, next) => {
 	try {
 		const query1 = await client.query(`
 			SELECT name, owner
@@ -34,12 +34,15 @@ invite.get('/:id', async (req, res) => {
 		});
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-invite.post('/:id/accept', async (req, res) => {
+invite.post('/:id/accept', async (req, res, next) => {
 	try {
 		await client.query(`
 			UPDATE Groups
@@ -57,12 +60,15 @@ invite.post('/:id/accept', async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-invite.post('/:id/reject', async (req, res) => {
+invite.post('/:id/reject', async (req, res, next) => {
 	try {
 		await client.query(`
 			DELETE FROM Invites
@@ -73,8 +79,11 @@ invite.post('/:id/reject', async (req, res) => {
 		res.sendStatus(204);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
