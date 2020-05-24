@@ -138,6 +138,7 @@ admin.post('/init', auth, async (req, res, next) => {
 			);	
 		`);
 
+		res.logger.add(`Successfully initialized PostgreSQL database`);
 		res.sendStatus(204);
 	}
 	catch (err) {
@@ -152,14 +153,16 @@ admin.post('/init', auth, async (req, res, next) => {
 admin.delete('/delete', auth, async (req, res, next) => {
 	try {
 		await client.query(`
-			DROP TABLE Resets;
-			DROP TYPE reset_t;
-			DROP TABLE Invites;
-			DROP TABLE Groups;
-			DROP TABLE Keys;
-			DROP TABLE Users;
+			DROP TABLE IF EXISTS Resets;
+			DROP TYPE IF EXISTS reset_t;
+			DROP TABLE IF EXISTS Invites;
+			DROP TABLE IF EXISTS Groups;
+			DROP TABLE IF EXISTS Keys;
+			DROP TABLE IF EXISTS Users;
+			DROP EXTENSION IF EXISTS pgcrypto
 		`);
 
+		res.logger.add(`Successfully wiped PostgreSQL database`);
 		res.sendStatus(204);
 	}
 	catch (err) {
@@ -169,22 +172,6 @@ admin.delete('/delete', auth, async (req, res, next) => {
 	finally {
 		next();
 	}
-});
-
-admin.post('/email', auth, async (req, res, next) => {
-	await transport.sendMail({
-		from: "bot@pronouncit.app",
-		to: "kailasbk230@gmail.com",
-		subject: "Message title",
-		html: `	<p> Hey there! <p>
-				<p> You have been invited to join a pronouncit group! </p>
-				<p> <u> Already a user? </u> </p>
-				<p> Login here: <a href="www.pronouncit.app/login"> www.pronouncit.app/login </a> <p>
-				<p> <u> Don't have an account? </u> <p>
-				<p> Signup here: <a href="www.pronouncit.app/register?email=kailasbk230@gmail.com"> www.pronouncit.app/register </a> <p>`
-	});
-	res.sendStatus(200);
-	next();
 });
 
 module.exports = admin;

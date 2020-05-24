@@ -68,13 +68,16 @@ account.post('/login', express.json(), async (req, res, next) => {
 					token,
 					refresh
 				});
+				res.logger.add(`Logged in user: ${claims.username}`);
 			}
 			else {
 				res.sendStatus(401);
+				res.logger.add(`Login failed: unverified account`);
 			}
 		}
 		else {
 			res.sendStatus(404);
+			res.logger.add(`Login failed: invalid credentials`);
 		}
 	} catch (err) {
 		res.logger.add(err);
@@ -128,6 +131,7 @@ account.post('/verify/:id', async (req, res, next) => {
 		);
 
 		if (data.rowCount === 1) {
+			res.logger.add(`Succesfully verified user`);
 			res.sendStatus(204);
 		}
 		else {
@@ -198,6 +202,7 @@ account.post('/reset/password', express.json(), async (req, res, next) => {
 				WHERE id=$1;`,
 				[req.body.id]
 			);
+			res.logger.add(`Successfully reset user password`);
 			res.sendStatus(204);
 		}
 		else {
@@ -247,6 +252,7 @@ account.post('/reset/email', express.json(), async (req, res, next) => {
 						<p> You must verify this new email before logging in: <a href="www.pronouncit.app/verify/${data.rows[0].verified}">click here.</a></p>`
 			});
 
+			res.logger.add(`Successfully reset user email`);
 			res.sendStatus(204);
 		}
 		else {
@@ -281,13 +287,16 @@ account.post('/refresh', express.json(), async (req, res, next) => {
 					token,
 					refresh
 				});
+				res.logger.add(`Refreshed user token: ${claims.username}`);
 			}
 			else {
 				res.sendStatus(401);
+				res.logger.add(`Refresh failed: unverified account`);
 			}
 		}
 		else {
 			res.sendStatus(404);
+			res.logger.add(`Refresh failed: invalid refresh token`);
 		}
 	} catch (err) {
 		res.logger.add(err);
