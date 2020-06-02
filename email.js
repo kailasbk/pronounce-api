@@ -10,4 +10,6 @@ const transport = nodemailer.createTransport({
 	}
 });
 
+console.log('Connected email bot: bot@pronouncit.app');
+
 module.exports = transport;

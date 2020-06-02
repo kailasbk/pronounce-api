@@ -12,24 +12,24 @@ function auth(req, res, next) {
 		const token = bearer.split(' ')[1];
 		const payload = jwt.verify(token, process.env.ADMIN_SECRET);
 		if (payload.admin === true) {
-			console.log('Authorized admin');
+			res.logger.add('Authorized admin');
 			next();
 		}
 		else {
 			throw 'Unauthorized';
 		}
 	} catch (err) {
-		console.log(err);
-		console.log('Unauthorized user');
+		res.logger.add(err);
+		res.logger.add('Unauthorized user');
 		res.sendStatus(401);
 	}
 }
 
-admin.get('/', auth, async (req, res) => {
+admin.get('/', auth, async (req, res, next) => {
 	res.send('Admin Page! (under development)');
 });
 
-admin.post('/login', express.json(), async (req, res) => {
+admin.post('/login', express.json(), async (req, res, next) => {
 	try {
 		if (req.body.password === process.env.ADMIN_PASSWORD) {
 			const token = jwt.sign({ admin: true }, process.env.ADMIN_SECRET);
@@ -40,11 +40,15 @@ admin.post('/login', express.json(), async (req, res) => {
 		}
 	}
 	catch (err) {
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.get('/users', auth, async (req, res) => {
+admin.get('/users', auth, async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT username, email FROM Users;
@@ -53,12 +57,15 @@ admin.get('/users', auth, async (req, res) => {
 		res.send(data.rows);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.get('/groups', auth, async (req, res) => {
+admin.get('/groups', auth, async (req, res, next) => {
 	try {
 		const data = await client.query(`
 			SELECT id, name, owner FROM Groups;
@@ -67,15 +74,25 @@ admin.get('/groups', auth, async (req, res) => {
 		res.send(data.rows);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.post('/init', auth, async (req, res) => {
+admin.post('/init', auth, async (req, res, next) => {
 	try {
 		await client.query(`
 			CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+			CREATE TABLE Keys (
+				id SERIAL PRIMARY KEY,
+				key text DEFAULT encode(gen_random_bytes(32), 'hex') 
+			);
+
+			INSERT INTO Keys DEFAULT VALUES;
 
 			CREATE TABLE Users (
 				username text PRIMARY KEY,
@@ -89,60 +106,87 @@ admin.post('/init', auth, async (req, res) => {
 				picture bytea,
 				audio bytea
 			);
+			
+			CREATE TABLE Refreshes (
+				id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+				username text,
+				FOREIGN KEY (username) REFERENCES Users(username)
+			);
 
 			CREATE TABLE Groups (
 				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
 				name text NOT NULL,
-				owner text,
+				owner text NOT NULL,
 				members text[],
 				FOREIGN KEY (owner) REFERENCES Users(username)
 			);
 
 			CREATE TABLE Invites (
 				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
-				groupId text,
-				email text,
+				groupId text NOT NULL,
+				email text NOT NULL,
+				time timestamptz DEFAULT now(),
 				FOREIGN KEY (groupId) REFERENCES Groups(id)
 			);
+
+			CREATE TABLE Feedback (
+				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
+				asker text,
+				giver text,
+				attempt bytea,
+				feedback bytea,
+				sent timestamptz DEFAULT now(),
+				given timestamptz,
+				FOREIGN KEY (asker) REFERENCES Users(username),
+				FOREIGN KEY (giver) REFERENCES Users(username)
+			);
+
+			CREATE TYPE reset_t AS ENUM('password', 'email');
+
+			CREATE TABLE Resets (
+				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
+				type reset_t,
+				email text NOT NULL,
+				FOREIGN KEY (email) REFERENCES Users(email)
+			);	
 		`);
 
-		res.sendStatus(204);
+		res.logger.add(`Successfully initialized PostgreSQL database`);
+		res.send(`Successfully initialized PostgreSQL database`);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
+	}
+	finally {
+		next();
 	}
 });
 
-admin.delete('/delete', auth, async (req, res) => {
+admin.delete('/delete', auth, async (req, res, next) => {
 	try {
 		await client.query(`
-			DROP TABLE Invites;
-			DROP TABLE Groups;
-			DROP TABLE Users;
+			DROP TABLE IF EXISTS Resets;
+			DROP TYPE IF EXISTS reset_t;
+			DROP TABLE IF EXISTS Feedback;
+			DROP TABLE IF EXISTS Invites;
+			DROP TABLE IF EXISTS Groups;
+			DROP TABLE IF EXISTS Refreshes;
+			DROP TABLE IF EXISTS Keys;
+			DROP TABLE IF EXISTS Users;
+			DROP EXTENSION IF EXISTS pgcrypto
 		`);
 
-		res.sendStatus(204);
+		res.logger.add(`Successfully wiped PostgreSQL database`);
+		res.send(`Successfully wiped PostgreSQL database`);
 	}
 	catch (err) {
-		console.log(err);
+		res.logger.add(err);
 		res.sendStatus(500);
 	}
-});
-
-admin.post('/email', auth, async (req, res) => {
-	await transport.sendMail({
-		from: "bot@pronouncit.app",
-		to: "kailasbk230@gmail.com",
-		subject: "Message title",
-		html: `	<p> Hey there! <p>
-				<p> You have been invited to join a pronouncit group! </p>
-				<p> <u> Already a user? </u> </p>
-				<p> Login here: <a href="www.pronouncit.app/login"> www.pronouncit.app/login </a> <p>
-				<p> <u> Don't have an account? </u> <p>
-				<p> Signup here: <a href="www.pronouncit.app/register?email=kailasbk230@gmail.com"> www.pronouncit.app/register </a> <p>`
-	});
-	res.sendStatus(200);
+	finally {
+		next();
+	}
 });
 
 module.exports = admin;
