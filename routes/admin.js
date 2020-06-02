@@ -152,7 +152,7 @@ admin.post('/init', auth, async (req, res, next) => {
 		`);
 
 		res.logger.add(`Successfully initialized PostgreSQL database`);
-		res.sendStatus(204);
+		res.send(`Successfully initialized PostgreSQL database`);
 	}
 	catch (err) {
 		res.logger.add(err);
@@ -168,15 +168,17 @@ admin.delete('/delete', auth, async (req, res, next) => {
 		await client.query(`
 			DROP TABLE IF EXISTS Resets;
 			DROP TYPE IF EXISTS reset_t;
+			DROP TABLE IF EXISTS Feedback;
 			DROP TABLE IF EXISTS Invites;
 			DROP TABLE IF EXISTS Groups;
+			DROP TABLE IF EXISTS Refreshes;
 			DROP TABLE IF EXISTS Keys;
 			DROP TABLE IF EXISTS Users;
 			DROP EXTENSION IF EXISTS pgcrypto
 		`);
 
 		res.logger.add(`Successfully wiped PostgreSQL database`);
-		res.sendStatus(204);
+		res.send(`Successfully wiped PostgreSQL database`);
 	}
 	catch (err) {
 		res.logger.add(err);

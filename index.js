@@ -28,6 +28,10 @@ app.use('/group', group);
 app.use('/invite', invite);
 app.use('/admin', admin);
 app.use('/learn', learn);
+app.get('/wake', (req, res, next) => {
+	res.send(`I'm awake!`);
+	next();
+})
 
 app.use(logger.end);
 
