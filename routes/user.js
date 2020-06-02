@@ -163,17 +163,43 @@ user.get('/0/groups', async (req, res, next) => {
 	}
 });
 
-user.get('/0/invites', async (req, res, next) => {
+user.get('/0/inbox', async (req, res, next) => {
 	try {
-		const data = await client.query(`
-			SELECT id
-			FROM Invites
-			WHERE email=$1`,
-			[req.token.email]
-		);
+		let inbox = [];
 
-		const invites = data.rows.map(invite => invite.id);
-		res.json(invites);
+		{
+			const data = await client.query(`
+				SELECT id, time
+				FROM Invites
+				WHERE email=$1;`,
+				[req.token.email]
+			);
+
+			inbox.push(...data.rows.map(row => ({ type: 'invite', id: row.id, time: row.time })));
+		}
+		{
+			const data = await client.query(`
+				SELECT id, sent
+				FROM Feedback
+				WHERE giver=$1`,
+				[req.token.username]
+			);
+
+			inbox.push(...data.rows.map(row => ({ type: 'feedback-request', id: row.id, time: row.sent })));
+		}
+		{
+			const data = await client.query(`
+				SELECT id, given
+				FROM Feedback
+				WHERE asker=$1 AND given IS NOT NULL;`,
+				[req.token.username]
+			);
+
+			inbox.push(...data.rows.map(row => ({ type: 'feedback-given', id: row.id, time: row.given })));
+		}
+
+		inbox.sort((a, b) => b.time - a.time);
+		res.json(inbox);
 	} catch (err) {
 		res.logger.add(err);
 		res.sendStatus(500);

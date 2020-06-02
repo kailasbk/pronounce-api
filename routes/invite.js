@@ -19,13 +19,13 @@ invite.get('/:id', async (req, res, next) => {
 		const username = query1.rows[0].owner;
 
 		const query2 = await client.query(`
-			SELECT firstname, lastname
+			SELECT firstname || ' ' || lastname AS name
 			FROM Users
 			WHERE username=$1;`,
 			[username]
 		);
 
-		const name = query2.rows[0].firstname + ' ' + query2.rows[0].lastname;
+		const name = query2.rows[0].name;
 
 		res.json({
 			name,

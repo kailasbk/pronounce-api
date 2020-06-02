@@ -14,6 +14,7 @@ const user = require('./routes/user');
 const group = require('./routes/group');
 const invite = require('./routes/invite');
 const admin = require('./routes/admin');
+const learn = require('./routes/learn');
 
 const logger = require('./middleware/logger');
 const noCache = require('./middleware/no-cache');
@@ -26,6 +27,7 @@ app.use('/user', user);
 app.use('/group', group);
 app.use('/invite', invite);
 app.use('/admin', admin);
+app.use('/learn', learn);
 
 app.use(logger.end);
 

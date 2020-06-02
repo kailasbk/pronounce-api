@@ -125,7 +125,20 @@ admin.post('/init', auth, async (req, res, next) => {
 				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
 				groupId text NOT NULL,
 				email text NOT NULL,
+				time timestamptz DEFAULT now(),
 				FOREIGN KEY (groupId) REFERENCES Groups(id)
+			);
+
+			CREATE TABLE Feedback (
+				id text PRIMARY KEY DEFAULT encode(gen_random_bytes(8), 'hex'),
+				asker text,
+				giver text,
+				attempt bytea,
+				feedback bytea,
+				sent timestamptz DEFAULT now(),
+				given timestamptz,
+				FOREIGN KEY (asker) REFERENCES Users(username),
+				FOREIGN KEY (giver) REFERENCES Users(username)
 			);
 
 			CREATE TYPE reset_t AS ENUM('password', 'email');
