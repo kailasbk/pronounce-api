@@ -125,6 +125,12 @@ group.post('/:id/invite', express.json(), async (req, res, next) => {
 			const emails = req.body.emails;
 			const promises = emails.map(email => new Promise(async (resolve, reject) => {
 				try {
+					await client.query(`
+						INSERT INTO Invites (groupId, email)
+						VALUES ($1, lower($2));`,
+						[req.params.id, email]
+					);
+
 					const emailHTML =
 						`
 					<p> Hey there! <p>
@@ -141,12 +147,6 @@ group.post('/:id/invite', express.json(), async (req, res, next) => {
 						subject: "New pronouncit invite",
 						html: emailHTML
 					});
-
-					await client.query(`
-						INSERT INTO Invites (groupId, email)
-						VALUES ($1, $2);`,
-						[req.params.id, email]
-					);
 
 					res.logger.add(`Sent invite to ${email}`)
 					resolve();

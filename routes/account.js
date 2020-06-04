@@ -11,7 +11,7 @@ account.post('/register', express.json(), async (req, res, next) => {
 	try {
 		await client.query(`
 			INSERT INTO Users (username, firstname, lastname, email, password)
-			VALUES ($1, $2, $3, $4, crypt($5, gen_salt('bf')));`,
+			VALUES ($1, $2, $3, lower($4), crypt($5, gen_salt('bf')));`,
 			[req.body.username, req.body.firstname, req.body.lastname, req.body.email, req.body.password]
 		);
 
@@ -181,6 +181,42 @@ account.post('/reset/new/:type', auth, async (req, res, next) => {
 	}
 });
 
+account.post('/reset/new/:type/:username', async (req, res, next) => {
+	try {
+		await client.query(`
+			INSERT INTO Resets (email, type)
+			VALUES ((SELECT email FROM Users WHERE username=$1), $2);`,
+			[req.params.username, req.params.type]
+		);
+
+		const data = await client.query(`
+			SELECT id, type, email
+			FROM Resets
+			WHERE email IN (SELECT email FROM Users WHERE username=$1)`,
+			[req.params.username]
+		);
+
+		await transport.sendMail({
+			from: 'bot@pronouncit.app',
+			to: data.rows[0].email,
+			subject: `Reset you Pronouncit ${data.rows[0].type}`,
+			html: `	<p> Hey there! <p>
+					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
+					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
+		});
+		res.logger.add(`Reset email sent to ${data.rows[0].email}`);
+
+		res.sendStatus(204);
+	} catch (err) {
+		res.logger.add(err);
+		res.sendStatus(500);
+	}
+	finally {
+		next();
+	}
+});
+
+// delete other resets for that user
 account.post('/reset/password', express.json(), async (req, res, next) => {
 	try {
 		await client.query(`
@@ -199,7 +235,7 @@ account.post('/reset/password', express.json(), async (req, res, next) => {
 		if (data.rowCount === 1) {
 			await client.query(`
 				DELETE FROM Resets
-				WHERE id=$1;`,
+				WHERE id IN (SELECT id FROM Resets WHERE email IN (SELECT email from Resets WHERE id=$1));`,
 				[req.body.id]
 			);
 			res.logger.add(`Successfully reset user password`);
@@ -234,12 +270,12 @@ account.post('/reset/email', express.json(), async (req, res, next) => {
 		if (data.rowCount === 1) {
 			await client.query(`
 				DELETE FROM Resets
-				WHERE id = $1;`,
+				WHERE id IN (SELECT id FROM Resets WHERE email IN (SELECT email from Resets WHERE id=$1));`,
 				[req.body.id]
 			);
 
 			const data = await client.query(`
-				SELECT verified, email FROM Users WHERE email=$1`,
+				SELECT verified, email FROM Users WHERE email=$1;`,
 				[req.body.value]
 			);
 
@@ -306,32 +342,5 @@ account.post('/refresh', express.json(), async (req, res, next) => {
 		next();
 	}
 });
-
-// not live (move to admin?)
-/*
-account.delete('/', auth, async (req, res, next) => {
-	try {
-		const data = await client.query(`
-		DELETE FROM Users
-		WHERE username = $1; `,
-			[req.token.username]
-		);
-		if (data.rows.length === 1) {
-			const claims = data.rows[0];
-			const token = jwt.sign({ username: claims.username, email: claims.email }, 'secret');
-			res.send(token);
-		}
-		else {
-			res.sendStatus(400);
-		}
-	} catch (err) {
-		res.logger.add(err);
-		res.sendStatus(500);
-	}
-finally {
-next();
-}
-});
-*/
 
 module.exports = account;
