@@ -149,6 +149,12 @@ account.post('/verify/:id', async (req, res, next) => {
 account.post('/reset/new/:type', auth, async (req, res, next) => {
 	try {
 		await client.query(`
+			DELETE FROM Resets
+			WHERE email=$1`,
+			[req.token.email]
+		);
+
+		await client.query(`
 			INSERT INTO Resets (email, type)
 			VALUES ($1, $2);`,
 			[req.token.email, req.params.type]
@@ -161,17 +167,23 @@ account.post('/reset/new/:type', auth, async (req, res, next) => {
 			[req.token.email]
 		);
 
-		await transport.sendMail({
-			from: 'bot@pronouncit.app',
-			to: data.rows[0].email,
-			subject: `Reset you Pronouncit ${data.rows[0].type}`,
-			html: `	<p> Hey there! <p>
+		if (data.rows.length === 1) {
+			await transport.sendMail({
+				from: 'bot@pronouncit.app',
+				to: data.rows[0].email,
+				subject: `Reset you Pronouncit ${data.rows[0].type}`,
+				html: `	<p> Hey there! <p>
 					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
 					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
-		});
-		res.logger.add(`Reset email sent to ${data.rows[0].email}`);
+			});
+			res.logger.add(`Reset email sent to ${data.rows[0].email}`);
 
-		res.sendStatus(204);
+			res.sendStatus(204);
+		}
+		else {
+			res.logger.add(`No account associated with email: ${req.token.email}`);
+			res.sendStatus(404);
+		}
 	} catch (err) {
 		res.logger.add(err);
 		res.sendStatus(500);
@@ -183,6 +195,12 @@ account.post('/reset/new/:type', auth, async (req, res, next) => {
 
 account.post('/reset/new/:type/:username', async (req, res, next) => {
 	try {
+		await client.query(`
+			DELETE FROM Resets
+			WHERE email IN (SELECT email from Users WHERE username=$1)`,
+			[req.params.username]
+		);
+
 		await client.query(`
 			INSERT INTO Resets (email, type)
 			VALUES ((SELECT email FROM Users WHERE username=$1), $2);`,
@@ -196,17 +214,23 @@ account.post('/reset/new/:type/:username', async (req, res, next) => {
 			[req.params.username]
 		);
 
-		await transport.sendMail({
-			from: 'bot@pronouncit.app',
-			to: data.rows[0].email,
-			subject: `Reset you Pronouncit ${data.rows[0].type}`,
-			html: `	<p> Hey there! <p>
+		if (data.rows.length === 1) {
+			await transport.sendMail({
+				from: 'bot@pronouncit.app',
+				to: data.rows[0].email,
+				subject: `Reset you Pronouncit ${data.rows[0].type}`,
+				html: `	<p> Hey there! <p>
 					<p> It seems that you have requested a ${data.rows[0].type} reset! </p>
 					<p> You can do so <a href="www.pronouncit.app/reset/${data.rows[0].type}/${data.rows[0].id}">here.</a></p>`
-		});
-		res.logger.add(`Reset email sent to ${data.rows[0].email}`);
+			});
+			res.logger.add(`Reset email sent to ${data.rows[0].email}`);
 
-		res.sendStatus(204);
+			res.sendStatus(204);
+		}
+		else {
+			res.logger.add(`No account associated with username: ${req.params.username}`);
+			res.sendStatus(404);
+		}
 	} catch (err) {
 		res.logger.add(err);
 		res.sendStatus(500);
